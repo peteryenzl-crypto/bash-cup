@@ -3,18 +3,38 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Juice Merge - 西瓜大挑戰 (穩定版)</title>
+    
+    <title>Juice Merge - 舒壓合成大挑戰</title>
+    <meta name="description" content="快來挑戰最強大的西瓜合成！超順滑手感，點擊即玩。">
+    
+    <meta property="og:type" content="website">
+    <meta property="og:title" content="Juice Merge - 西瓜合成挑戰賽">
+    <meta property="og:description" content="挑戰兩顆西瓜相撞的 2500 分大獎！">
+    <meta property="og:image" content="preview.png"> 
+
     <script src="https://cdnjs.cloudflare.com/ajax/libs/matter-js/0.19.0/matter.min.js"></script>
     <style>
-        body { margin: 0; padding: 0; overflow: hidden; background: #fdf0d5; font-family: 'Segoe UI', sans-serif; }
+        body { margin: 0; padding: 0; overflow: hidden; background: #fdf0d5; font-family: 'Segoe UI', 'Microsoft JhengHei', sans-serif; }
         canvas { display: block; margin: 0 auto; background: #f1dca7; touch-action: none; }
+        
+        /* UI 介面 */
         #ui { position: absolute; top: 10px; width: 100%; text-align: center; pointer-events: none; z-index: 10; }
-        .score-container { background: rgba(255, 255, 255, 0.8); display: inline-block; padding: 8px 25px; border-radius: 30px; border: 3px solid #5e503f; }
-        .score { font-size: 40px; color: #5e503f; font-weight: 900; line-height: 1; }
-        .next-box { font-size: 16px; color: #780000; font-weight: bold; margin-top: 5px; }
-        #game-over { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; padding: 40px; border-radius: 20px; text-align: center; display: none; z-index: 100; border: 5px solid #ffadad; width: 250px; }
-        button { padding: 12px 30px; font-size: 20px; cursor: pointer; border-radius: 15px; border: none; background: #669bbc; color: white; font-weight: bold; }
-        #hint { position: absolute; bottom: 15px; width: 100%; text-align: center; color: #780000; font-size: 14px; opacity: 0.8; z-index: 5; }
+        .score-container { background: rgba(255, 255, 255, 0.85); display: inline-block; padding: 10px 30px; border-radius: 40px; border: 3px solid #5e503f; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
+        .score { font-size: 44px; color: #5e503f; font-weight: 900; line-height: 1; }
+        .next-box { font-size: 18px; color: #780000; font-weight: bold; margin-top: 5px; }
+        
+        /* 提示與結束畫面 */
+        #hint { position: absolute; bottom: 20px; width: 100%; text-align: center; color: #780000; font-weight: bold; opacity: 0.8; z-index: 5; animation: blink 1.5s infinite; }
+        @keyframes blink { 50% { opacity: 0.3; } }
+        
+        #game-over { 
+            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            background: white; padding: 40px; border-radius: 25px; text-align: center; 
+            display: none; z-index: 100; border: 6px solid #ffadad; box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+            width: 280px;
+        }
+        button { padding: 12px 35px; font-size: 22px; cursor: pointer; border-radius: 15px; border: none; background: #669bbc; color: white; font-weight: bold; transition: 0.2s; }
+        button:hover { background: #003049; }
     </style>
 </head>
 <body>
@@ -26,23 +46,22 @@
         </div>
     </div>
 
-    <div id="hint">點擊畫面開始遊戲 (自動載入測試音樂)</div>
+    <div id="hint">點擊畫面開始遊戲與音樂</div>
 
     <div id="game-over">
-        <h1>GAME OVER</h1>
-        <p>最終得分</p>
-        <div id="final-score" style="font-size: 48px; font-weight: 900; color: #5e503f; margin: 10px 0;">0</div>
+        <h1 style="color: #780000; margin-top: 0;">GAME OVER</h1>
+        <p style="color: #5e503f; margin-bottom: 5px;">最終得分</p>
+        <div id="final-score" style="font-size: 54px; font-weight: 900; color: #5e503f; margin: 10px 0;">0</div>
         <button onclick="location.reload()">重新挑戰</button>
     </div>
 
     <audio id="bgm" loop preload="auto">
-        <source src="bash.mp3" type="audio/mpeg">
+        <source src="bgm.mp3" type="audio/mpeg">
     </audio>
 
     <script>
-        const { Engine, Render, Runner, Bodies, Composite, Events, Body, Vector } = Matter;
+        const { Engine, Render, Runner, Bodies, Composite, Events, Body } = Matter;
 
-        // --- 基礎座標定義 ---
         const width = Math.min(window.innerWidth, 500);
         const height = window.innerHeight;
         const TOP_LIMIT = 120;       
@@ -66,7 +85,6 @@
             { emoji: '🍉', size: 82, color: '#caffbf' } // 西瓜 (Level 6)
         ];
 
-        // --- 初始化引擎 ---
         const engine = Engine.create();
         engine.gravity.y = 0; 
 
@@ -78,15 +96,14 @@
 
         const wallOptions = { isStatic: true, friction: 0.8, restitution: 0, render: { visible: false } };
         Composite.add(engine.world, [
-            Bodies.rectangle(width/2, TOP_LIMIT - 10, width, 20, wallOptions), // 頂紅線
-            Bodies.rectangle(-10, height/2, 20, height, wallOptions),        // 左
-            Bodies.rectangle(width+10, height/2, 20, height, wallOptions),     // 右
-            Bodies.rectangle(width/2, height + 50, width, 20, wallOptions)    // 底
+            Bodies.rectangle(width/2, TOP_LIMIT - 10, width, 20, wallOptions), // 頂部紅線 (不反彈)
+            Bodies.rectangle(-10, height/2, 20, height, wallOptions),
+            Bodies.rectangle(width+10, height/2, 20, height, wallOptions),
+            Bodies.rectangle(width/2, height + 100, width, 20, wallOptions) // 底部遠一點
         ]);
 
         Render.run(render);
-        const runner = Runner.create();
-        Runner.run(runner, engine);
+        Runner.run(Runner.create(), engine);
 
         function createJuice(x, y, level, isStatic = false) {
             const type = juiceTypes[level];
@@ -104,29 +121,26 @@
         let shooter = createJuice(width / 2, SHOOT_Y, currentLevel, true);
         Composite.add(engine.world, shooter);
 
-        // --- 音效與特效 ---
         function startAudio() {
             if (audioStarted) return;
             const bgm = document.getElementById('bgm');
-            bgm.volume = 0.5;
-            bgm.play().catch(e => console.log("Audio play blocked"));
+            bgm.play().catch(() => console.log("等待手動點擊啟動音樂"));
             audioStarted = true;
             document.getElementById('hint').style.display = 'none';
         }
 
-        function createEffect(x, y, color) {
-            for (let i = 0; i < 25; i++) {
+        function createExplosion(x, y) {
+            for (let i = 0; i < 30; i++) {
                 particles.push({
                     x: x, y: y,
-                    vx: (Math.random() - 0.5) * 12,
-                    vy: (Math.random() - 0.5) * 12,
+                    vx: (Math.random() - 0.5) * 15,
+                    vy: (Math.random() - 0.5) * 15,
                     life: 1.0,
-                    color: color
+                    color: '#ff4d4d'
                 });
             }
         }
 
-        // --- 互動邏輯 ---
         const handleInput = (e) => {
             if (isGameOver || !canShoot) return;
             startAudio();
@@ -142,7 +156,6 @@
             if (!isDragging || !canShoot || isGameOver) return;
             isDragging = false;
             canShoot = false;
-            
             Body.setStatic(shooter, false);
             shooter.frictionAir = 0; 
             Body.setVelocity(shooter, { x: 0, y: -22 });
@@ -161,11 +174,11 @@
         window.addEventListener('mousedown', handleInput);
         window.addEventListener('mousemove', (e) => isDragging && handleInput(e));
         window.addEventListener('mouseup', endDrag);
-        window.addEventListener('touchstart', handleInput, {passive: false});
+        window.addEventListener('touchstart', (e) => { handleInput(e); e.preventDefault(); }, {passive: false});
         window.addEventListener('touchmove', (e) => { if(isDragging) { handleInput(e); e.preventDefault(); } }, {passive: false});
         window.addEventListener('touchend', endDrag);
 
-        // --- 核心邏輯 ---
+        // --- 核心合成邏輯 ---
         Events.on(engine, 'collisionStart', (event) => {
             event.pairs.forEach((pair) => {
                 const { bodyA, bodyB } = pair;
@@ -176,22 +189,20 @@
                     const level = bodyA.level;
                     const pos = { x: (bodyA.position.x + bodyB.position.x)/2, y: (bodyA.position.y + bodyB.position.y)/2 };
                     
-                    if (level === 6) { // 西瓜大爆炸
+                    if (level === 6) { // 🍉 + 🍉 = 大爆炸消失
                         score += 2500;
-                        createEffect(pos.x, pos.y, '#4cc9f0');
+                        createExplosion(pos.x, pos.y);
                         Composite.remove(engine.world, [bodyA, bodyB]);
                     } else {
                         const newLevel = level + 1;
                         score += (newLevel * 20);
                         Composite.remove(engine.world, [bodyA, bodyB]);
-                        
-                        // 延遲一下生成，避免物理重疊閃退
                         setTimeout(() => {
                             const upgraded = createJuice(pos.x, pos.y, newLevel);
                             upgraded.hasEntered = true;
                             Composite.add(engine.world, upgraded);
-                            Body.setVelocity(upgraded, { x: (Math.random()-0.5)*2, y: -2 });
-                        }, 10);
+                            Body.setVelocity(upgraded, { x: (Math.random()-0.5)*4, y: -2 });
+                        }, 20);
                     }
                     document.getElementById('score').innerText = score;
                 }
@@ -210,31 +221,31 @@
                     }
                 }
             });
-            // 特效更新
+            // 粒子更新
             for (let i = particles.length - 1; i >= 0; i--) {
                 const p = particles[i];
-                p.x += p.vx; p.y += p.vy; p.life -= 0.02;
+                p.x += p.vx; p.y += p.vy; p.life -= 0.025;
                 if (p.life <= 0) particles.splice(i, 1);
             }
         });
 
         Events.on(render, 'afterRender', () => {
             const ctx = render.context;
-            // 粒子特效
+            // 爆炸粒子
             particles.forEach(p => {
                 ctx.globalAlpha = p.life;
                 ctx.fillStyle = p.color;
-                ctx.beginPath(); ctx.arc(p.x, p.y, 4, 0, Math.PI*2); ctx.fill();
+                ctx.beginPath(); ctx.arc(p.x, p.y, 5, 0, Math.PI*2); ctx.fill();
             });
             ctx.globalAlpha = 1;
 
-            // 紅藍線
+            // 輔助線
             ctx.setLineDash([10, 5]); ctx.strokeStyle = '#ff4d4d'; ctx.lineWidth = 4;
             ctx.beginPath(); ctx.moveTo(0, TOP_LIMIT); ctx.lineTo(width, TOP_LIMIT); ctx.stroke();
             ctx.setLineDash([]); ctx.strokeStyle = '#00f2ff';
             ctx.beginPath(); ctx.moveTo(0, BOTTOM_LIMIT); ctx.lineTo(width, BOTTOM_LIMIT); ctx.stroke();
 
-            // 繪製杯子 Emoji
+            // 繪製杯子
             Composite.allBodies(engine.world).forEach(body => {
                 if (body.label === 'juice') {
                     const type = juiceTypes[body.level];
